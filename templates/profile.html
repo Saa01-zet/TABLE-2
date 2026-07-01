@@ -67,6 +67,14 @@
         .btn:hover {
             background-color: #e0e0e0;
         }
+        .btn-primary {
+            background-color: #333;
+            color: white;
+            border-color: #333;
+        }
+        .btn-primary:hover {
+            background-color: #555;
+        }
         .btn-logout {
             background-color: #f0f0f0;
             color: #333;
@@ -106,6 +114,7 @@
             <div id="loader" class="loader">Загрузка данных...</div>
         </div>
         <div class="buttons">
+            <a href="/notes" class="btn btn-primary">📝 Мои заметки</a>
             <a href="/edit_profile" class="btn">Редактировать профиль</a>
             <button onclick="logout()" class="btn btn-logout">Выйти</button>
         </div>

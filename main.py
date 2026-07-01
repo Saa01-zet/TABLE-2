@@ -1,10 +1,11 @@
 import sqlite3
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
 from functools import wraps
+from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_here_change_this_in_production'  # Секретный ключ для сессий
+app.secret_key = 'your_secret_key_here_change_this_in_production'
 CORS(app)
 
 
@@ -26,6 +27,7 @@ def get_db_connection():
 
 def init_db():
     conn = get_db_connection()
+
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,8 +36,25 @@ def init_db():
             password TEXT NOT NULL
         )
     ''')
+
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            user_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+
     conn.commit()
     conn.close()
+
+
+@app.route('/')
+def index():
+    return redirect('/login')
 
 
 @app.route('/register')
@@ -60,6 +79,34 @@ def edit_profile_page():
     if 'user_id' not in session:
         return redirect('/login')
     return render_template('edit_profile.html')
+
+
+@app.route('/notes')
+def notes_page():
+    if 'user_id' not in session:
+        return redirect('/login')
+    return render_template('notes.html')
+
+
+@app.route('/create_note')
+def create_note_page():
+    if 'user_id' not in session:
+        return redirect('/login')
+    return render_template('create_note.html')
+
+
+@app.route('/view_note')
+def view_note_page():
+    if 'user_id' not in session:
+        return redirect('/login')
+    return render_template('view_note.html')
+
+
+@app.route('/edit_note')
+def edit_note_page():
+    if 'user_id' not in session:
+        return redirect('/login')
+    return render_template('edit_note.html')
 
 
 @app.route('/api/register', methods=['POST'])
@@ -206,6 +253,177 @@ def logout():
     try:
         session.clear()
         return jsonify({'message': 'Вы успешно вышли из аккаунта'}), 200
+    except Exception as e:
+        return jsonify({'message': f'Ошибка: {str(e)}'}), 500
+
+
+
+@app.route('/api/notes', methods=['GET'])
+@login_required
+def get_notes():
+    try:
+        user_id = session.get('user_id')
+        search = request.args.get('search', '').strip()
+
+        conn = get_db_connection()
+
+        if search:
+            notes = conn.execute(
+                'SELECT * FROM notes WHERE user_id = ? AND title LIKE ? ORDER BY created_at DESC',
+                (user_id, f'%{search}%')
+            ).fetchall()
+        else:
+            notes = conn.execute(
+                'SELECT * FROM notes WHERE user_id = ? ORDER BY created_at DESC',
+                (user_id,)
+            ).fetchall()
+
+        conn.close()
+
+        result = []
+        for note in notes:
+            result.append({
+                'id': note['id'],
+                'title': note['title'],
+                'content': note['content'],
+                'created_at': note['created_at']
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({'message': f'Ошибка: {str(e)}'}), 500
+
+
+@app.route('/api/notes', methods=['POST'])
+@login_required
+def create_note():
+    try:
+        data = request.json
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        user_id = session.get('user_id')
+
+        if not title or not content:
+            return jsonify({'message': 'Все поля должны быть заполнены'}), 400
+
+        created_at = datetime.now().strftime('%d.%m.%Y %H:%M')
+
+        conn = get_db_connection()
+        conn.execute(
+            'INSERT INTO notes (title, content, user_id, created_at) VALUES (?, ?, ?, ?)',
+            (title, content, user_id, created_at)
+        )
+        conn.commit()
+        conn.close()
+
+        return jsonify({'message': 'Заметка успешно создана'}), 201
+
+    except Exception as e:
+        return jsonify({'message': f'Ошибка: {str(e)}'}), 500
+
+
+@app.route('/api/note', methods=['GET'])
+@login_required
+def get_note():
+    try:
+        note_id = request.args.get('id')
+        user_id = session.get('user_id')
+
+        if not note_id:
+            return jsonify({'message': 'ID заметки не указан'}), 400
+
+        conn = get_db_connection()
+        note = conn.execute(
+            'SELECT * FROM notes WHERE id = ? AND user_id = ?',
+            (note_id, user_id)
+        ).fetchone()
+        conn.close()
+
+        if not note:
+            return jsonify({'message': 'Заметка не найдена'}), 404
+
+        return jsonify({
+            'id': note['id'],
+            'title': note['title'],
+            'content': note['content'],
+            'created_at': note['created_at']
+        }), 200
+
+    except Exception as e:
+        return jsonify({'message': f'Ошибка: {str(e)}'}), 500
+
+
+@app.route('/api/note', methods=['PUT'])
+@login_required
+def update_note():
+    try:
+        data = request.json
+        note_id = data.get('id')
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        user_id = session.get('user_id')
+
+        if not note_id:
+            return jsonify({'message': 'ID заметки не указан'}), 400
+
+        if not title or not content:
+            return jsonify({'message': 'Все поля должны быть заполнены'}), 400
+
+        conn = get_db_connection()
+
+        note = conn.execute(
+            'SELECT * FROM notes WHERE id = ? AND user_id = ?',
+            (note_id, user_id)
+        ).fetchone()
+
+        if not note:
+            conn.close()
+            return jsonify({'message': 'Заметка не найдена'}), 404
+
+        conn.execute(
+            'UPDATE notes SET title = ?, content = ? WHERE id = ? AND user_id = ?',
+            (title, content, note_id, user_id)
+        )
+        conn.commit()
+        conn.close()
+
+        return jsonify({'message': 'Заметка успешно обновлена'}), 200
+
+    except Exception as e:
+        return jsonify({'message': f'Ошибка: {str(e)}'}), 500
+
+
+@app.route('/api/note', methods=['DELETE'])
+@login_required
+def delete_note():
+    try:
+        note_id = request.args.get('id')
+        user_id = session.get('user_id')
+
+        if not note_id:
+            return jsonify({'message': 'ID заметки не указан'}), 400
+
+        conn = get_db_connection()
+
+        note = conn.execute(
+            'SELECT * FROM notes WHERE id = ? AND user_id = ?',
+            (note_id, user_id)
+        ).fetchone()
+
+        if not note:
+            conn.close()
+            return jsonify({'message': 'Заметка не найдена'}), 404
+
+        conn.execute(
+            'DELETE FROM notes WHERE id = ? AND user_id = ?',
+            (note_id, user_id)
+        )
+        conn.commit()
+        conn.close()
+
+        return jsonify({'message': 'Заметка успешно удалена'}), 200
+
     except Exception as e:
         return jsonify({'message': f'Ошибка: {str(e)}'}), 500
 

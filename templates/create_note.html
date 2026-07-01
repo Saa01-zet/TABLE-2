@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Создание заметки</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        .container {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            font-weight: normal;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: normal;
+            color: #333;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            box-sizing: border-box;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+        }
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #888;
+        }
+        .buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 10px 25px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            flex: 1;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        .btn:hover {
+            background-color: #e0e0e0;
+        }
+        .btn-save {
+            background-color: #333;
+            color: white;
+            border-color: #333;
+        }
+        .btn-save:hover {
+            background-color: #555;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 3px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border-color: #a5d6a7;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            border-color: #ef9a9a;
+        }
+        .back-link {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .back-link a {
+            color: #333;
+            text-decoration: none;
+        }
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Создание заметки</h1>
+        <form id="createForm">
+            <div class="form-group">
+                <label for="title">Заголовок</label>
+                <input type="text" id="title" placeholder="Введите заголовок" required>
+            </div>
+            <div class="form-group">
+                <label for="content">Текст заметки</label>
+                <textarea id="content" placeholder="Введите текст заметки" required></textarea>
+            </div>
+            <div class="buttons">
+                <button type="submit" class="btn btn-save">Сохранить</button>
+                <a href="/notes" class="btn">Отмена</a>
+            </div>
+        </form>
+        <div id="message"></div>
+        <div class="back-link">
+            <a href="/notes">← Назад к заметкам</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('createForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const title = document.getElementById('title').value.trim();
+            const content = document.getElementById('content').value.trim();
+
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = 'message';
+
+            try {
+                const response = await fetch('/api/notes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ title, content })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = data.message;
+                    document.getElementById('createForm').reset();
+                    setTimeout(() => {
+                        window.location.href = '/notes';
+                    }, 1500);
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = data.message;
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.textContent = 'Ошибка при сохранении';
+            }
+        });
+    </script>
+</body>
+</html>

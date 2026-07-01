@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр заметки</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 700px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        .container {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        h1 {
+            color: #333;
+            font-weight: normal;
+            margin-bottom: 10px;
+        }
+        .note-date {
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .note-content {
+            background: white;
+            padding: 20px;
+            border-radius: 3px;
+            border: 1px solid #eee;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        .buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 10px 25px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        .btn:hover {
+            background-color: #e0e0e0;
+        }
+        .btn-edit {
+            background-color: #333;
+            color: white;
+            border-color: #333;
+        }
+        .btn-edit:hover {
+            background-color: #555;
+        }
+        .btn-back {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 3px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            border-color: #ef9a9a;
+        }
+        .loader {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loader" class="loader">Загрузка...</div>
+        <div id="noteContent" style="display: none;">
+            <h1 id="noteTitle"></h1>
+            <div class="note-date" id="noteDate"></div>
+            <div class="note-content" id="noteText"></div>
+            <div class="buttons">
+                <a id="editLink" href="#" class="btn btn-edit">Редактировать</a>
+                <a href="/notes" class="btn btn-back">← Назад к заметкам</a>
+            </div>
+        </div>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        // Получаем ID заметки из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const noteId = urlParams.get('id');
+
+        async function loadNote() {
+            if (!noteId) {
+                document.getElementById('loader').innerHTML = '<div class="message error">ID заметки не указан</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/note?id=${noteId}`);
+
+                if (response.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Ошибка загрузки заметки');
+                }
+
+                const note = await response.json();
+
+                document.getElementById('noteTitle').textContent = note.title;
+                document.getElementById('noteDate').textContent = `📅 Создано: ${note.created_at}`;
+                document.getElementById('noteText').textContent = note.content;
+                document.getElementById('editLink').href = `/edit_note?id=${note.id}`;
+
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('noteContent').style.display = 'block';
+
+            } catch (error) {
+                document.getElementById('loader').innerHTML = `<div class="message error">${error.message}</div>`;
+            }
+        }
+
+        window.onload = loadNote;
+    </script>
+</body>
+</html>
